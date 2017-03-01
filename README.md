@@ -26,6 +26,12 @@ Taking a closer look, here's how to download escapebox:
 go get https://github.com/briansteffens/escapebox
 ```
 
+Import it into a go program:
+
+```go
+import "github.com/briansteffens/escapebox"
+```
+
 In a termbox application, here's how to initialize escapebox:
 
 ```go
@@ -61,7 +67,7 @@ Seq. If Seq is set to SeqNone, then it's a standard event and all the usual
 fields like Ch and Key are set like normal. If Seq is not set to SeqNone, then
 it's a custom escape sequence matching one of the sequences you registered:
 
-```
+```go
 if ev.Seq == SeqShiftTab {
 	// The shift+tab sequence was detected
 } else if ev.Seq == SeqNone {
