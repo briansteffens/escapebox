@@ -19,7 +19,8 @@ const (
 func termPrintf(x, y int, format string, args ...interface{}) {
 	s := fmt.Sprintf(format, args...)
 	for i, c := range s {
-		termbox.SetCell(x + i, y, c, termbox.ColorWhite, termbox.ColorBlack)
+		termbox.SetCell(x + i, y, c, termbox.ColorWhite,
+				termbox.ColorBlack)
 	}
 }
 
