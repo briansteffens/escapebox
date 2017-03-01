@@ -6,6 +6,10 @@ import (
 	"github.com/nsf/termbox-go"
 )
 
+const (
+	SeqShiftTab = 1
+)
+
 func main() {
 	err := termbox.Init()
 	if err != nil {
@@ -23,6 +27,8 @@ func main() {
 
 	Init()
 	defer Close()
+
+	Register(SeqShiftTab, 91, 90)
 
 	for {
 		ev := PollEvent()

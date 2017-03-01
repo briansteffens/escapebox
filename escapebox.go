@@ -2,6 +2,7 @@ package main
 
 import (
 	"time"
+	"errors"
 	"github.com/nsf/termbox-go"
 )
 
@@ -9,7 +10,6 @@ import (
 // Non-standard escape sequences
 const (
 	SeqNone     = 0
-	SeqShiftTab = 1
 )
 
 
@@ -17,6 +17,23 @@ const (
 type Event struct {
 	termbox.Event
 	Seq int
+}
+
+
+type SequenceMask struct {
+	Chars []rune
+	Seq   int
+}
+
+
+var sequenceMasks []SequenceMask
+
+
+func Register(seq int, chars ...rune) {
+	sequenceMasks = append(sequenceMasks, SequenceMask {
+		Seq:   seq,
+		Chars: chars,
+	})
 }
 
 
@@ -42,22 +59,22 @@ func makeEvent(e termbox.Event) Event {
 
 // Check a list of termbox Events to see if they match any known non-standard
 // escape sequences
-func detectSequence(events []Event) Event {
-	var ret Event
+func detectSequence(events []Event) (Event, error) {
+	maskLoop: for _, mask := range sequenceMasks {
+		if len(mask.Chars) + 1 != len(events) {
+			continue
+		}
 
-	if len(events) == 3 &&
-	   events[0].Type == termbox.EventKey &&
-	   events[0].Key == termbox.KeyEsc &&
-	   events[1].Type == termbox.EventKey &&
-	   events[1].Key == 0 &&
-	   events[1].Ch == 91 &&
-	   events[2].Type == termbox.EventKey &&
-	   events[2].Key == 0 &&
-	   events[2].Ch == 90 {
-		ret.Seq = SeqShiftTab
+		for i := 0; i < len(mask.Chars); i++ {
+			if mask.Chars[i] != events[i + 1].Ch {
+				continue maskLoop
+			}
+		}
+
+		return Event { Seq: mask.Seq }, nil
 	}
 
-	return ret
+	return Event{}, errors.New("No sequence found.")
 }
 
 
@@ -67,6 +84,8 @@ var Events chan Event
 
 // Initialize escapebox.
 func Init() {
+	sequenceMasks = make([]SequenceMask, 0)
+
 	channelizerOut = make(chan termbox.Event)
 	channelizerPolling = false
 	channelizerTerminate = false
@@ -177,9 +196,9 @@ func sequencer() {
 				buffer[bufferLen] = ev
 				bufferLen++
 
-				seq := detectSequence(buffer[0:bufferLen])
+				seq, err := detectSequence(buffer[0:bufferLen])
 
-				if seq.Seq != SeqNone {
+				if err == nil {
 					// If an escape sequence was detected,
 					// return it and stop the timer.
 					Events <- seq
