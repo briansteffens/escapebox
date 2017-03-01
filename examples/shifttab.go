@@ -17,10 +17,10 @@ const (
 
 // Convenience function to write a formatted string to termbox output.
 func termPrintf(x, y int, format string, args ...interface{}) {
-    s := fmt.Sprintf(format, args...)
-    for i, c := range s {
-	termbox.SetCell(x + i, y, c, termbox.ColorWhite, termbox.ColorBlack)
-    }
+	s := fmt.Sprintf(format, args...)
+	for i, c := range s {
+		termbox.SetCell(x + i, y, c, termbox.ColorWhite, termbox.ColorBlack)
+	}
 }
 
 

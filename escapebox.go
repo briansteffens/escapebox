@@ -9,7 +9,7 @@ import (
 
 // Non-standard escape sequences
 const (
-	SeqNone     = 0
+	SeqNone = 0
 )
 
 
