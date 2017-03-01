@@ -1,63 +1,63 @@
 package main
 
 import (
-    "time"
-    "github.com/nsf/termbox-go"
+	"time"
+	"github.com/nsf/termbox-go"
 )
 
 
 // Non-standard escape sequences
 const (
-    SeqNone     = 0
-    SeqShiftTab = 1
+	SeqNone     = 0
+	SeqShiftTab = 1
 )
 
 
 // Custom version of termbox.Event with extra data for non-standard sequences.
 type Event struct {
-    termbox.Event
-    Seq int
+	termbox.Event
+	Seq int
 }
 
 
 // Convert a termbox.Event to an escapebox.Event
 func makeEvent(e termbox.Event) Event {
-    var ret Event
+	var ret Event
 
-    ret.Type   = e.Type
-    ret.Mod    = e.Mod
-    ret.Key    = e.Key
-    ret.Ch     = e.Ch
-    ret.Width  = e.Width
-    ret.Height = e.Height
-    ret.Err    = e.Err
-    ret.MouseX = e.MouseX
-    ret.MouseY = e.MouseY
-    ret.N      = e.N
-    ret.Seq    = SeqNone
+	ret.Type   = e.Type
+	ret.Mod    = e.Mod
+	ret.Key    = e.Key
+	ret.Ch     = e.Ch
+	ret.Width  = e.Width
+	ret.Height = e.Height
+	ret.Err    = e.Err
+	ret.MouseX = e.MouseX
+	ret.MouseY = e.MouseY
+	ret.N      = e.N
+	ret.Seq    = SeqNone
 
-    return ret
+	return ret
 }
 
 
 // Check a list of termbox Events to see if they match any known non-standard
 // escape sequences
 func detectSequence(events []Event) Event {
-    var ret Event
+	var ret Event
 
-    if len(events) == 3 &&
-       events[0].Type == termbox.EventKey &&
-       events[0].Key == termbox.KeyEsc &&
-       events[1].Type == termbox.EventKey &&
-       events[1].Key == 0 &&
-       events[1].Ch == 91 &&
-       events[2].Type == termbox.EventKey &&
-       events[2].Key == 0 &&
-       events[2].Ch == 90 {
-        ret.Seq = SeqShiftTab
-    }
+	if len(events) == 3 &&
+	   events[0].Type == termbox.EventKey &&
+	   events[0].Key == termbox.KeyEsc &&
+	   events[1].Type == termbox.EventKey &&
+	   events[1].Key == 0 &&
+	   events[1].Ch == 91 &&
+	   events[2].Type == termbox.EventKey &&
+	   events[2].Key == 0 &&
+	   events[2].Ch == 90 {
+		ret.Seq = SeqShiftTab
+	}
 
-    return ret
+	return ret
 }
 
 
@@ -72,20 +72,20 @@ func Init() {
 	channelizerTerminate = false
 	go channelizer()
 
-    Events = make(chan Event)
-    go sequencer()
+	Events = make(chan Event)
+	go sequencer()
 }
 
 
 // Read a single escapebox.Event from the output channel.
 func PollEvent() Event {
-    return <-Events
+	return <-Events
 }
 
 
 // Cleanup escapebox.
 func Close() {
-    // Terminate the channelizer.
+	// Terminate the channelizer.
 	channelizerTerminate = true
 
 	// If the termbox.PollEvent() is being called, interrupt it.
@@ -99,8 +99,8 @@ func Close() {
 		}
 	}
 
-    // Consume any remaining events in the output so the sequencer will end.
-    for _ = range Events {}
+	// Consume any remaining events in the output to end the sequencer.
+	for _ = range Events {}
 }
 
 
@@ -134,73 +134,76 @@ func channelizer() {
 
 // Read termbox events and try to detect non-standard escape sequences
 func sequencer() {
-    defer close(Events)
+	defer close(Events)
 
-    escapeSequenceMaxDuration := time.Millisecond
+	escapeSequenceMaxDuration := time.Millisecond
 
-    // TODO: some kind of nil timer to start?
-    escapeSequenceTimer := time.NewTimer(escapeSequenceMaxDuration)
-    <-escapeSequenceTimer.C
+	// TODO: some kind of nil timer to start?
+	sequenceTimer := time.NewTimer(escapeSequenceMaxDuration)
+	<-sequenceTimer.C
 
-    inEscapeSequence := false
+	inEscapeSequence := false
 
-    var sequenceBuffer [10]Event
-    sequenceBufferLen := 0
+	var buffer [10]Event
+	bufferLen := 0
 
-    for {
-        select {
-        case e, ok := <-channelizerOut:
-            if !ok {
-                return
-            }
+	for {
+		select {
+		case e, ok := <-channelizerOut:
+			if !ok {
+				return
+			}
 
-            ev := makeEvent(e)
+			ev := makeEvent(e)
 
-            if ev.Type == termbox.EventKey && ev.Key == termbox.KeyEsc {
-                // If already in escape sequence and we see another escape key,
-                // flush the existing buffer and start a new escape sequence.
-                if inEscapeSequence {
-                    // Flush buffer
-                    for i := 0; i < sequenceBufferLen; i++ {
-                        Events <- sequenceBuffer[i]
-                    }
-                }
+			if ev.Type == termbox.EventKey &&
+			   ev.Key == termbox.KeyEsc {
+				// If already in escape sequence and we see
+				// another escape key, flush the existing
+				// buffer and start a new escape sequence.
+				if inEscapeSequence {
+					// Flush buffer
+					for i := 0; i < bufferLen; i++ {
+						Events <- buffer[i]
+					}
+				}
 
-                escapeSequenceTimer.Reset(escapeSequenceMaxDuration)
-                inEscapeSequence = true
-                sequenceBufferLen = 0
-            }
+				sequenceTimer.Reset(escapeSequenceMaxDuration)
+				inEscapeSequence = true
+				bufferLen = 0
+			}
 
-            if inEscapeSequence {
-                sequenceBuffer[sequenceBufferLen] = ev
-                sequenceBufferLen++
+			if inEscapeSequence {
+				buffer[bufferLen] = ev
+				bufferLen++
 
-                seq := detectSequence(sequenceBuffer[0:sequenceBufferLen])
+				seq := detectSequence(buffer[0:bufferLen])
 
-                if seq.Seq != SeqNone {
-                    // If an escape sequence was detected, return it and stop
-                    // the timer.
-                    Events <- seq
-                    sequenceBufferLen = 0
-                    escapeSequenceTimer.Stop()
-                    inEscapeSequence = false
-                }
+				if seq.Seq != SeqNone {
+					// If an escape sequence was detected,
+					// return it and stop the timer.
+					Events <- seq
+					bufferLen = 0
+					sequenceTimer.Stop()
+					inEscapeSequence = false
+				}
 
-                break
-            }
+				break
+			}
 
-            // Not in possible escape sequence: handle event immediately.
-            Events <- ev
+			// Not in possible escape sequence: handle event
+			// immediately.
+			Events <- ev
 
-        case <-escapeSequenceTimer.C:
-            // Escape sequence timeout reached. Assume no escape sequence is
-            // coming. Flush buffer.
-            inEscapeSequence = false
+		case <-sequenceTimer.C:
+			// Escape sequence timeout reached. Assume no escape
+			// sequence is coming. Flush buffer.
+			inEscapeSequence = false
 
-            // Flush buffer
-            for i := 0; i < sequenceBufferLen; i++ {
-                Events <- sequenceBuffer[i]
-            }
-        }
-    }
+			// Flush buffer
+			for i := 0; i < bufferLen; i++ {
+				Events <- buffer[i]
+			}
+		}
+	}
 }

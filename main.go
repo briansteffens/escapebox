@@ -29,7 +29,8 @@ func main() {
 
 		if ev.Seq == SeqShiftTab {
 			f.WriteString("shift tab\n")
-		} else if ev.Type == termbox.EventKey && ev.Key == termbox.KeyCtrlC {
+		} else if ev.Type == termbox.EventKey &&
+			  ev.Key == termbox.KeyCtrlC {
 			f.WriteString("ctrl c\n")
 			break
 		} else {
