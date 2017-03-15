@@ -6,6 +6,7 @@ import (
 	"github.com/nsf/termbox-go"
 )
 
+type Sequence int
 
 // Non-standard escape sequences
 const (
@@ -16,20 +17,20 @@ const (
 // Custom version of termbox.Event with extra data for non-standard sequences.
 type Event struct {
 	termbox.Event
-	Seq int
+	Seq Sequence
 }
 
 
 type SequenceMask struct {
 	Chars []rune
-	Seq   int
+	Seq   Sequence
 }
 
 
 var sequenceMasks []SequenceMask
 
 
-func Register(seq int, chars ...rune) {
+func Register(seq Sequence, chars ...rune) {
 	sequenceMasks = append(sequenceMasks, SequenceMask {
 		Seq:   seq,
 		Chars: chars,
